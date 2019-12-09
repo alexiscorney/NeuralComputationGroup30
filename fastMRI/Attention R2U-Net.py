@@ -486,6 +486,7 @@ epoches = 5
 
 
 for epoch in range(epoches):
+    print("Epoch,", epoch)
     model.train() 
     mean = []
     for iter, data in enumerate(train_loader):
