@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
-
-
 import torch 
 import torch.nn as nn 
 
@@ -19,14 +16,8 @@ from matplotlib import pyplot as plt
 from math import exp
 
 
-# In[2]:
-
-
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'  # check whether a GPU is available
 torch.cuda.empty_cache()
-
-
-# In[3]:
 
 
 def show_slices(data, slice_nums, cmap=None): # visualisation
@@ -35,10 +26,6 @@ def show_slices(data, slice_nums, cmap=None): # visualisation
         plt.subplot(1, len(slice_nums), i + 1)
         plt.imshow(data[num], cmap=cmap)
         plt.axis('off')
-
-
-# In[4]:
-
 
 class MRIDataset(DataLoader):
     def __init__(self, data_list, acceleration, center_fraction, use_seed):
@@ -53,9 +40,6 @@ class MRIDataset(DataLoader):
     def __getitem__(self, idx):
         subject_id = self.data_list[idx]
         return get_epoch_batch(subject_id, self.acceleration, self.center_fraction, self.use_seed)
-
-
-# In[5]:
 
 
 def get_epoch_batch(subject_id, acc, center_fract, use_seed=True):
@@ -93,9 +77,6 @@ def get_epoch_batch(subject_id, acc, center_fract, use_seed=True):
     return img_gt.squeeze(0), img_und.squeeze(0), rawdata_und.squeeze(0), masks.squeeze(0), norm
 
 
-# In[6]:
-
-
 def load_data_path(train_data_path, val_data_path):
     """ Go through each subset (training, validation) and list all 
     the file names, the file paths and the slices of subjects in the training and validation sets 
@@ -124,9 +105,6 @@ def load_data_path(train_data_path, val_data_path):
             data_list[train_and_val[i]] += [(fname, subject_data_path, slice) for slice in range(5, num_slice)]
     
     return data_list  
-
-
-# In[7]:
 
 
 #PREPARE THE DATA 
@@ -162,30 +140,6 @@ train_dataset = MRIDataset(data_list['train'], acceleration=acc, center_fraction
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=1, num_workers=num_workers, collate_fn=my_collate)
 
 
-
-# In[ ]:
-
-
-
-
-
-# In[8]:
-
-
-#build the network
-
-#fully connected input layer (64)
-
-#--
-
-#convolutional layers (relu)
-
-#fully connected output layer (64)
-
-
-# In[9]:
-
-
 class ConvolutionalBlock(nn.Module):
     """
     2 lots of:
@@ -215,9 +169,6 @@ class ConvolutionalBlock(nn.Module):
         """
         #print('input', input.shape)
         return self.layers(input)
-
-
-# In[10]:
 
 
 class conv_block(nn.Module):
@@ -329,9 +280,6 @@ class Attention_block(nn.Module):
         return x*psi
 
 
-# In[11]:
-
-
 class R2AttU_Net(nn.Module):
     def __init__(self,img_ch=3,output_ch=1,t=2):
         super(R2AttU_Net,self).__init__()
@@ -345,7 +293,7 @@ class R2AttU_Net(nn.Module):
         
         self.RRCNN3 = RRCNN_block(ch_in=128,ch_out=256,t=t)
         
-#         self.RRCNN4 = RRCNN_block(ch_in=256,ch_out=512,t=t)
+        self.RRCNN4 = RRCNN_block(ch_in=256,ch_out=512,t=t)
         
 #         self.RRCNN5 = RRCNN_block(ch_in=512,ch_out=1024,t=t)
         
@@ -354,9 +302,9 @@ class R2AttU_Net(nn.Module):
 #         self.Att5 = Attention_block(F_g=512,F_l=512,F_int=256)
 #         self.Up_RRCNN5 = RRCNN_block(ch_in=1024, ch_out=512,t=t)
         
-#         self.Up4 = up_conv(ch_in=512,ch_out=256)
-#         self.Att4 = Attention_block(F_g=256,F_l=256,F_int=128)
-#         self.Up_RRCNN4 = RRCNN_block(ch_in=512, ch_out=256,t=t)
+        self.Up4 = up_conv(ch_in=512,ch_out=256)
+        self.Att4 = Attention_block(F_g=256,F_l=256,F_int=128)
+        self.Up_RRCNN4 = RRCNN_block(ch_in=512, ch_out=256,t=t)
         
         self.Up3 = up_conv(ch_in=256,ch_out=128)
         self.Att3 = Attention_block(F_g=128,F_l=128,F_int=64)
@@ -379,8 +327,8 @@ class R2AttU_Net(nn.Module):
         x3 = self.Maxpool(x2)
         x3 = self.RRCNN3(x3)
 
-#         x4 = self.Maxpool(x3)
-#         x4 = self.RRCNN4(x4)
+        x4 = self.Maxpool(x3)
+        x4 = self.RRCNN4(x4)
 
 #         x5 = self.Maxpool(x4)
 #         x5 = self.RRCNN5(x5)
@@ -391,10 +339,10 @@ class R2AttU_Net(nn.Module):
 #         d5 = torch.cat((x4,d5),dim=1)
 #         d5 = self.Up_RRCNN5(d5)
         
-#         d4 = self.Up4(x4)
-#         x3 = self.Att4(g=d4,x=x3)
-#         d4 = torch.cat((x3,d4),dim=1)
-#         d4 = self.Up_RRCNN4(d4)
+        d4 = self.Up4(x4)
+        x3 = self.Att4(g=d4,x=x3)
+        d4 = torch.cat((x3,d4),dim=1)
+        d4 = self.Up_RRCNN4(d4)
 
         d3 = self.Up3(x3)
         x2 = self.Att3(g=d3,x=x2)
@@ -411,8 +359,6 @@ class R2AttU_Net(nn.Module):
         return d1
 
 
-# In[12]:
-
 
 import torch.optim as optim
 torch.manual_seed(42)
@@ -425,9 +371,6 @@ model = R2AttU_Net(
 
 #inspect parameters 
 # print("Before training: \n", model.state_dict())
-
-
-# In[13]:
 
 
 #ssim loss
@@ -518,10 +461,6 @@ class SSIM(torch.nn.Module):
 
         return 1 - ssim(img2, img1, window=window, window_size=self.window_size, size_average=self.size_average, val_range=img2.max())
 
-
-# In[14]:
-
-
 # set learning rate
 lr = 1e-4
 wd = 0.0
@@ -532,27 +471,18 @@ optimiser = optim.Adam(model.parameters(), lr=lr)
 # optimiser = torch.optim.RMSprop(model.parameters(), lr, weight_decay=wd)
 
 
-# In[15]:
-
-
 ssim_loss = SSIM()
 
-
-# In[16]:
 
 
 def save_model(path, loss):
     full_path = path + "-loss-" + str(loss) + '.h5'
     torch.save(model.state_dict(), full_path)
 
-
-# In[17]:
-
-
 #train the network 
 
 # set number of epoches, i.e., number of times we iterate through the training set
-epoches = 200
+epoches = 5
 
 
 for epoch in range(epoches):
@@ -584,44 +514,38 @@ for epoch in range(epoches):
 
 # print("After training: \n", model.state_dict())
 
-
-# In[ ]:
-
-
-PATH = 'model_final.h5'
-torch.save(model.state_dict(), PATH)
+# PATH = 'model_final.h5'
+# torch.save(model.state_dict(), PATH)
 
 
-#     
-
-# In[ ]:
 
 
-model = UNet(
-    in_chans=1,
-    out_chans=1,
-    chans=32,
-    num_pool_layers=4,
-).to(device)
+# model = UNet(
+#     in_chans=1,
+#     out_chans=1,
+#     chans=32,
+#     num_pool_layers=4,
+# ).to(device)
 
-model.load_state_dict(torch.load(PATH))
-
-
-# In[ ]:
+# model.load_state_dict(torch.load(PATH))
 
 
-model.eval()
 
 
-# In[ ]:
+# model.eval()
 
+
+from skimage.measure import compare_ssim 
+def ssim_old(gt, pred):
+    """ Compute Structural Similarity Index Metric (SSIM). """
+    return compare_ssim(
+        gt.transpose(1, 2, 0), pred.transpose(1, 2, 0), multichannel=True, data_range=gt.max()
+    )
 
 # create data loader for training set. It applies same to validation set as well
 test_dataset = MRIDataset(data_list['val'], acceleration=acc, center_fraction=cen_fract, use_seed=seed)
 test_loader = DataLoader(test_dataset, shuffle=True, batch_size=1, num_workers=num_workers)
 
-
-# In[ ]:
 
 
 with torch.no_grad():
@@ -654,53 +578,21 @@ with torch.no_grad():
     print("Mean:", numpy_ssims.mean())
 
 
-# In[ ]:
 
-
-from skimage.measure import compare_ssim 
-def ssim_old(gt, pred):
-    """ Compute Structural Similarity Index Metric (SSIM). """
-    return compare_ssim(
-        gt.transpose(1, 2, 0), pred.transpose(1, 2, 0), multichannel=True, data_range=gt.max()
-    )
-
-
-# In[ ]:
-
-
-for iter, data in enumerate(test_loader):
-    target, input, mean, std, norm = data
-    mg_gt, img_und, rawdata_und, masks, norm = sample
-    D = T.complex_abs(img_gt).squeeze()
-    D = T.center_crop(D, (320, 320))
+# for iter, data in enumerate(test_loader):
+#     target, input, mean, std, norm = data
+#     mg_gt, img_und, rawdata_und, masks, norm = sample
+#     D = T.complex_abs(img_gt).squeeze()
+#     D = T.center_crop(D, (320, 320))
     
-    C = T.complex_abs(img_und)
-    C = T.center_crop(C, (320, 320))
-    input = C.unsqueeze(1).to(device)
+#     C = T.complex_abs(img_und)
+#     C = T.center_crop(C, (320, 320))
+#     input = C.unsqueeze(1).to(device)
     
-    output = model(input).cpu().detach().numpy().squeeze(1)
+#     output = model(input).cpu().detach().numpy().squeeze(1)
     
-    print(C.shape)
-    print(output.shape)
-    print(ssim(C.cpu().detach().numpy(), output))
+#     print(C.shape)
+#     print(output.shape)
+#     print(ssim(C.cpu().detach().numpy(), output))
     
-    if iteration < 1: break
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
+#     if iteration < 1: break
