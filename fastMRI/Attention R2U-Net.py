@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import torch 
 import torch.nn as nn 
 
@@ -19,14 +13,8 @@ from matplotlib import pyplot as plt
 from math import exp
 
 
-# In[2]:
-
-
 device = 'cuda:0' if torch.cuda.is_available() else 'cpu'  # check whether a GPU is available
 torch.cuda.empty_cache()
-
-
-# In[3]:
 
 
 def show_slices(data, slice_nums, cmap=None): # visualisation
@@ -35,9 +23,6 @@ def show_slices(data, slice_nums, cmap=None): # visualisation
         plt.subplot(1, len(slice_nums), i + 1)
         plt.imshow(data[num], cmap=cmap)
         plt.axis('off')
-
-
-# In[4]:
 
 
 class MRIDataset(DataLoader):
@@ -54,8 +39,6 @@ class MRIDataset(DataLoader):
         subject_id = self.data_list[idx]
         return get_epoch_batch(subject_id, self.acceleration, self.center_fraction, self.use_seed)
 
-
-# In[5]:
 
 
 def get_epoch_batch(subject_id, acc, center_fract, use_seed=True):
@@ -93,44 +76,48 @@ def get_epoch_batch(subject_id, acc, center_fract, use_seed=True):
     return img_gt.squeeze(0), img_und.squeeze(0), rawdata_und.squeeze(0), masks.squeeze(0), norm
 
 
-# In[6]:
-
-
-def load_data_path(train_data_path, val_data_path):
+def load_data_path(data_path):
     """ Go through each subset (training, validation) and list all 
     the file names, the file paths and the slices of subjects in the training and validation sets 
     """
 
     data_list = {}
     train_and_val = ['train', 'val']
-    data_path = [train_data_path, val_data_path]
-      
-    for i in range(len(data_path)):
+    limit = 60
+    
+        
+    l = sorted(os.listdir(data_path))
+    print(len(l))
+    
+    for i in range(len(train_and_val)):
 
         data_list[train_and_val[i]] = []
         
-        which_data_path = data_path[i]
+        if i == 0 : la = l[:limit]
+        else : la = l[limit:]
+        print(len(la))
     
-        for fname in sorted(os.listdir(which_data_path)):
-            
-            subject_data_path = os.path.join(which_data_path, fname)
+        for fname in la:
+                
+            subject_data_path = os.path.join(data_path, fname)
                      
-            if not os.path.isfile(subject_data_path): continue 
+            if not os.path.isfile(subject_data_path): continue
             
             with h5py.File(subject_data_path, 'r') as data:
                 num_slice = data['kspace'].shape[0]
                 
             # the first 5 slices are mostly noise so it is better to exlude them
-            data_list[train_and_val[i]] += [(fname, subject_data_path, slice) for slice in range(5, num_slice)]
+            if i == 1:
+                data_list[train_and_val[i]] += [(fname, subject_data_path, slice) for slice in range(0, num_slice)]
+            else:
+                data_list[train_and_val[i]] += [(fname, subject_data_path, slice) for slice in range(17, 22)]
     
     return data_list  
 
 
-# In[7]:
-
 
 #PREPARE THE DATA 
-data_list = load_data_path('/data/local/NC2019MRI/train', '/data/local/NC2019MRI/train')
+data_list = load_data_path('/data/local/NC2019MRI/train')
 # slices, height, width = input_k.shape()
 
 acc = [4,8]
@@ -138,7 +125,7 @@ cen_fract = [0.08, 0.04]
 # acc = [4]
 # cen_fract = [0.08]
 seed = False # random masks for each slice 
-num_workers = 16 # data loading is faster using a bigger number for num_workers. 0 means using one cpu to load data
+num_workers = 10 # data loading is faster using a bigger number for num_workers. 0 means using one cpu to load data
 
 def my_collate(batch):
     batch_len = len(batch)
@@ -159,11 +146,7 @@ def my_collate(batch):
     
 # create data loader for training set. It applies same to validation set as well
 train_dataset = MRIDataset(data_list['train'], acceleration=acc, center_fraction=cen_fract, use_seed=seed)
-train_loader = DataLoader(train_dataset, shuffle=True, batch_size=2, num_workers=num_workers, collate_fn=my_collate)
-
-
-
-# In[9]:
+train_loader = DataLoader(train_dataset, shuffle=True, batch_size=5, num_workers=num_workers, collate_fn=my_collate)
 
 
 class conv_block(nn.Module):
@@ -275,9 +258,6 @@ class Attention_block(nn.Module):
         return x*psi
 
 
-# In[10]:
-
-
 class R2AttU_Net(nn.Module):
     def __init__(self,img_ch=3,output_ch=1,t=2):
         super(R2AttU_Net,self).__init__()
@@ -357,9 +337,6 @@ class R2AttU_Net(nn.Module):
         return d1
 
 
-# In[11]:
-
-
 import torch.optim as optim
 torch.manual_seed(42)
 
@@ -372,8 +349,6 @@ model = R2AttU_Net(
 #inspect parameters 
 # print("Before training: \n", model.state_dict())
 
-
-# In[12]:
 
 
 #ssim loss
@@ -465,9 +440,6 @@ class SSIM(torch.nn.Module):
         return 1 - ssim(img2, img1, window=window, window_size=self.window_size, size_average=self.size_average, val_range=img2.max())
 
 
-# In[13]:
-
-
 # set learning rate
 lr = 1e-4
 wd = 0.0
@@ -478,13 +450,8 @@ optimiser = optim.Adam(model.parameters(), lr=lr)
 # optimiser = torch.optim.RMSprop(model.parameters(), lr, weight_decay=wd)
 
 
-# In[14]:
-
 
 ssim_loss = SSIM()
-
-
-# In[15]:
 
 
 def save_model(path, loss):
@@ -492,13 +459,11 @@ def save_model(path, loss):
     torch.save(model.state_dict(), full_path)
 
 
-# In[16]:
-
 
 #train the network 
 
 # set number of epoches, i.e., number of times we iterate through the training set
-epoches = 200
+epoches = 100
 
 
 for epoch in range(epoches):
@@ -525,24 +490,19 @@ for epoch in range(epoches):
         
     l = sum(mean)/len(mean)
     print("Epoch {}'s loss: {}".format(epoch, l))
-    if(epoch % 50 == 0):
+    if(epoch % 10 == 0):
 #         pass
         save_model('models/model', str(l))
 
 # print("After training: \n", model.state_dict())
 
 
-# In[ ]:
-
-
 PATH = 'model_final.h5'
 torch.save(model.state_dict(), PATH)
 
 
-#     
 
-# In[ ]:
-
+torch.cuda.empty_cache()
 
 model = UNet(
     in_chans=1,
@@ -554,13 +514,9 @@ model = UNet(
 model.load_state_dict(torch.load(PATH))
 
 
-# In[ ]:
-
 
 model.eval()
 
-
-# In[25]:
 
 
 from skimage.measure import compare_ssim 
@@ -571,65 +527,110 @@ def ssim_old(gt, pred):
     )
 
 
-# In[26]:
-
 
 # create data loader for training set. It applies same to validation set as well
 test_dataset = MRIDataset(data_list['val'], acceleration=acc, center_fraction=cen_fract, use_seed=seed)
 test_loader = DataLoader(test_dataset, shuffle=True, batch_size=2, num_workers=num_workers, collate_fn=my_collate)
 
 
-# In[ ]:
 
+ssim_scores = []
 
 with torch.no_grad():
-    all_ssims = []
-    for iteration, sample in enumerate(test_loader):
+    for iteration, sample in enumerate(val_loader):
     
         img_gt, img_und, _, _, _  = sample
-        D = img_gt.squeeze()
-    
-        C = img_und
-        input = C.to(device)
-        # print(img_gt.shape) torch.Size([14, 1, 320, 320])
-    
-        output = model(input).cpu().detach().numpy().squeeze()
-    
-    # print(output.shape) (14, 320, 320)
-    # print(D.shape) torch.Size([14, 320, 320])
-#         print(ssim_old(D.cpu().detach().numpy(), output))
-        all_ssims.append(ssim_old(D.cpu().detach().numpy(), output))
+        D = img_gt
         
-    # from left to right: mask, masked kspace, undersampled image, ground truth
-#         show_slices([D[0], output[0], C.squeeze()[0]], [0, 1, 2], cmap='gray')
-#         print(model(input).squeeze(1).unsqueeze(0).shape)
-#         print(img_gt.squeeze(1).unsqueeze(0).to(device).shape)
-#         print(1 - ssim_loss(model(input).squeeze(1).unsqueeze(0), img_gt.squeeze(1).unsqueeze(0).to(device)))
-#         if iteration >= 3: break
+        C = img_und
+    
+        output = model(img_und.to(device)).cpu().numpy().squeeze()
+        ssim_scores.append(ssim_old(D.squeeze(1).numpy(), output))
             
-    numpy_ssims = np.array(all_ssims)
-    print("len of list", len(all_ssims))
-    print("Mean:", numpy_ssims.mean())
+numpy_ssims = np.array(ssim_scores)
+print("len of list", len(ssim_scores))
+print("Mean:", numpy_ssims.mean())
 
 
-# In[ ]:
+
+# with torch.no_grad():
+#     for iteration, sample in enumerate(val_loader):
+    
+#         img_gt, img_und, _, _, _  = sample
+#         D = img_gt
+        
+#         C = img_und
+    
+#         output = model(img_und.to(device)).cpu().numpy().squeeze()
+#         show_slices([D.squeeze(1).numpy()[6], output[6]], [0, 1], cmap='gray')
+        
+#         if iteration >= 3: break
 
 
-for iter, data in enumerate(test_loader):
-    target, input, mean, std, norm = data
-    mg_gt, img_und, rawdata_und, masks, norm = sample
-    D = T.complex_abs(img_gt).squeeze()
-    D = T.center_crop(D, (320, 320))
+
+def save_reconstructions(reconstructions, out_dir, filename):
+    """
+    Saves the reconstructions from a model into h5 files that is appropriate for submission
+    to the leaderboard.
+    Args:
+        reconstructions (dict[str, np.array]): A dictionary mapping input filenames to
+            corresponding reconstructions (of shape num_slices x height x width).
+        out_dir (pathlib.Path): Path to the output directory where the reconstructions
+            should be saved.
+    """
+    # print(len(reconstructions))
+    for fname, recons in reconstructions.items():
+        subject_path = os.path.join(out_dir, filename)
+        print(subject_path)
+        with h5py.File(subject_path, 'a') as f:
+            f.create_dataset(fname, data=recons)
+
+
+
+test_path = '/data/local/NC2019MRI/test/'
+files = []
+file_names = []
+
+for r, d, f in os.walk(test_path):
+    for file in f:
+        files.append(os.path.join(r, file))
+        file_names.append(file)
+
+with torch.no_grad():
+    for i in range(len(files)):
+        with h5py.File(files[i],  "r") as hf:
+            volume_kspace_4af = hf['kspace_4af'][()]
+            volume_kspace_8af = hf['kspace_8af'][()]
+            volume_kspace4 = T.to_tensor(volume_kspace_4af)
+            volume_kspace8 = T.to_tensor(volume_kspace_8af) 
+            _4af, _8af = T.ifft2(volume_kspace4), T.ifft2(volume_kspace8)
+            norm_4af = T.complex_abs(_4af).max()
+            if norm_4af < 1e-6: norm_4af = 1e-6
+            norm_8af = T.complex_abs(_8af).max()
+            if norm_8af < 1e-6: norm_8af = 1e-6
+            _4af = _4af / norm_4af
+            _8af = _8af / norm_8af
+            _4af = T.complex_abs(_4af.squeeze(0))
+            _4af = T.center_crop(_4af, (320, 320)).to(device)
+            _8af = T.complex_abs(_8af.squeeze(0))
+            _8af = T.center_crop(_8af, (320, 320)).to(device)
+
+            recon_4af = model(_4af.unsqueeze(1)).squeeze(1).cpu()
+            recon_8af = model(_8af.unsqueeze(1)).squeeze(1).cpu()
+            # print(recon_4af.shape)
+            reconstructions = {'recon_4af': recon_4af.numpy(), 'recon_8af': recon_8af.numpy()}
+            out_dir = 'saved/' # where you want to save your result. 
+            if not (os.path.exists(out_dir)): os.makedirs(out_dir)
+            save_reconstructions(reconstructions, out_dir, file_names[i])
+        
+
+
+# file_path = 'saved/file1000817.h5'
+
+# with h5py.File(file_path,  "r") as hf:
+#     img1 = hf['recon_4af']
+#     img2 = hf['recon_8af']
+#     print(img2.shape)
     
-    C = T.complex_abs(img_und)
-    C = T.center_crop(C, (320, 320))
-    input = C.unsqueeze(1).to(device)
-    
-    output = model(input).cpu().detach().numpy().squeeze(1)
-    
-    print(C.shape)
-    print(output.shape)
-    print(ssim(C.cpu().detach().numpy(), output))
-    
-    if iteration < 1: break
+#     show_slices([img1[20],img2[20]], [0, 1], cmap='gray')
 
