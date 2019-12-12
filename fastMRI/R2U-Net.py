@@ -146,7 +146,7 @@ def my_collate(batch):
     
 # create data loader for training set. It applies same to validation set as well
 train_dataset = MRIDataset(data_list['train'], acceleration=acc, center_fraction=cen_fract, use_seed=seed)
-train_loader = DataLoader(train_dataset, shuffle=True, batch_size=1, num_workers=num_workers, collate_fn=my_collate)
+train_loader = DataLoader(train_dataset, shuffle=True, batch_size=2, num_workers=num_workers, collate_fn=my_collate)
 
 
 class conv_block(nn.Module):
@@ -258,9 +258,9 @@ class Attention_block(nn.Module):
         return x*psi
 
 
-class R2AttU_Net(nn.Module):
+class R2U_Net(nn.Module):
     def __init__(self,img_ch=3,output_ch=1,t=2):
-        super(R2AttU_Net,self).__init__()
+        super(R2U_Net,self).__init__()
         
         self.Maxpool = nn.MaxPool2d(kernel_size=2,stride=2)
         self.Upsample = nn.Upsample(scale_factor=2)
@@ -271,25 +271,21 @@ class R2AttU_Net(nn.Module):
         
         self.RRCNN3 = RRCNN_block(ch_in=128,ch_out=256,t=t)
         
-#         self.RRCNN4 = RRCNN_block(ch_in=256,ch_out=512,t=t)
+        self.RRCNN4 = RRCNN_block(ch_in=256,ch_out=512,t=t)
         
-#         self.RRCNN5 = RRCNN_block(ch_in=512,ch_out=1024,t=t)
+        self.RRCNN5 = RRCNN_block(ch_in=512,ch_out=1024,t=t)
         
 
-#         self.Up5 = up_conv(ch_in=1024,ch_out=512)
-#         self.Att5 = Attention_block(F_g=512,F_l=512,F_int=256)
-#         self.Up_RRCNN5 = RRCNN_block(ch_in=1024, ch_out=512,t=t)
+        self.Up5 = up_conv(ch_in=1024,ch_out=512)
+        self.Up_RRCNN5 = RRCNN_block(ch_in=1024, ch_out=512,t=t)
         
-#         self.Up4 = up_conv(ch_in=512,ch_out=256)
-#         self.Att4 = Attention_block(F_g=256,F_l=256,F_int=128)
-#         self.Up_RRCNN4 = RRCNN_block(ch_in=512, ch_out=256,t=t)
+        self.Up4 = up_conv(ch_in=512,ch_out=256)
+        self.Up_RRCNN4 = RRCNN_block(ch_in=512, ch_out=256,t=t)
         
         self.Up3 = up_conv(ch_in=256,ch_out=128)
-        self.Att3 = Attention_block(F_g=128,F_l=128,F_int=64)
         self.Up_RRCNN3 = RRCNN_block(ch_in=256, ch_out=128,t=t)
         
         self.Up2 = up_conv(ch_in=128,ch_out=64)
-        self.Att2 = Attention_block(F_g=64,F_l=64,F_int=32)
         self.Up_RRCNN2 = RRCNN_block(ch_in=128, ch_out=64,t=t)
 
         self.Conv_1x1 = nn.Conv2d(64,output_ch,kernel_size=1,stride=1,padding=0)
@@ -305,30 +301,26 @@ class R2AttU_Net(nn.Module):
         x3 = self.Maxpool(x2)
         x3 = self.RRCNN3(x3)
 
-#         x4 = self.Maxpool(x3)
-#         x4 = self.RRCNN4(x4)
+        x4 = self.Maxpool(x3)
+        x4 = self.RRCNN4(x4)
 
-#         x5 = self.Maxpool(x4)
-#         x5 = self.RRCNN5(x5)
+        x5 = self.Maxpool(x4)
+        x5 = self.RRCNN5(x5)
 
         # decoding + concat path
-#         d5 = self.Up5(x5)
-#         x4 = self.Att5(g=d5,x=x4)
-#         d5 = torch.cat((x4,d5),dim=1)
-#         d5 = self.Up_RRCNN5(d5)
+        d5 = self.Up5(x5)
+        d5 = torch.cat((x4,d5),dim=1)
+        d5 = self.Up_RRCNN5(d5)
         
-#         d4 = self.Up4(x4)
-#         x3 = self.Att4(g=d4,x=x3)
-#         d4 = torch.cat((x3,d4),dim=1)
-#         d4 = self.Up_RRCNN4(d4)
+        d4 = self.Up4(d5)
+        d4 = torch.cat((x3,d4),dim=1)
+        d4 = self.Up_RRCNN4(d4)
 
-        d3 = self.Up3(x3)
-        x2 = self.Att3(g=d3,x=x2)
+        d3 = self.Up3(d4)
         d3 = torch.cat((x2,d3),dim=1)
         d3 = self.Up_RRCNN3(d3)
 
         d2 = self.Up2(d3)
-        x1 = self.Att2(g=d2,x=x1)
         d2 = torch.cat((x1,d2),dim=1)
         d2 = self.Up_RRCNN2(d2)
 
@@ -341,7 +333,7 @@ import torch.optim as optim
 torch.manual_seed(42)
 
 #create a model
-model = R2AttU_Net(
+model = R2U_Net(
     img_ch=1,
     output_ch=1
 ).to(device)
@@ -463,7 +455,7 @@ def save_model(path, loss):
 #train the network 
 
 # set number of epoches, i.e., number of times we iterate through the training set
-epoches = 100
+epoches = 70
 
 
 for epoch in range(epoches):
@@ -490,9 +482,9 @@ for epoch in range(epoches):
         
     l = sum(mean)/len(mean)
     print("Epoch {}'s loss: {}".format(epoch, l))
-    if(epoch % 10 == 0):
-        pass
-        # save_model('models/model', str(l))
+    if(epoch % 25 == 0):
+        # pass
+        save_model('models/model', str(l))
 
 # print("After training: \n", model.state_dict())
 
@@ -504,7 +496,7 @@ torch.save(model.state_dict(), PATH)
 
 torch.cuda.empty_cache()
 
-model = UNet(
+model = R2U_Net(
     in_chans=1,
     out_chans=1,
     chans=32,
