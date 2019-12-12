@@ -146,7 +146,7 @@ def my_collate(batch):
     
 # create data loader for training set. It applies same to validation set as well
 train_dataset = MRIDataset(data_list['train'], acceleration=acc, center_fraction=cen_fract, use_seed=seed)
-train_loader = DataLoader(train_dataset, shuffle=True, batch_size=5, num_workers=num_workers, collate_fn=my_collate)
+train_loader = DataLoader(train_dataset, shuffle=True, batch_size=1, num_workers=num_workers, collate_fn=my_collate)
 
 
 class conv_block(nn.Module):
@@ -530,7 +530,7 @@ def ssim_old(gt, pred):
 
 # create data loader for training set. It applies same to validation set as well
 test_dataset = MRIDataset(data_list['val'], acceleration=acc, center_fraction=cen_fract, use_seed=seed)
-test_loader = DataLoader(test_dataset, shuffle=True, batch_size=2, num_workers=num_workers, collate_fn=my_collate)
+test_loader = DataLoader(test_dataset, shuffle=True, batch_size=1, num_workers=num_workers, collate_fn=my_collate)
 
 
 
