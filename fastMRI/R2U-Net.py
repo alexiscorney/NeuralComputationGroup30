@@ -483,9 +483,9 @@ for epoch in range(epoches):
     l = sum(mean)/len(mean)
     print("Epoch {}'s loss: {}".format(epoch, l))
     if(epoch % 25 == 0):
-        # pass
-        save_model('models/model', str(l))
-
+        pass
+        #save_model('models/model', str(l))
+	
 # print("After training: \n", model.state_dict())
 
 
